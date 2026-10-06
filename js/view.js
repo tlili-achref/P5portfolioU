@@ -11,10 +11,8 @@ const View = {
     screens: {},   // filled in init()
     menuItems: [],
     wipe: document.getElementById("wipe"),
-    reveal: document.getElementById("reveal"),
-    revealLine: document.getElementById("reveal-line"),
-    seq: document.getElementById("seq"),
     projectsBody: document.getElementById("projects-body"),
+    lightbox: document.getElementById("lightbox"),
     skillsBody: document.getElementById("skills-body"),
     sfx: document.getElementById("sfx-select"),
     sfxSg: document.getElementById("sfx-sg"),
@@ -30,12 +28,12 @@ const View = {
     this.els.menuItems = [...document.querySelectorAll(".menu-item")];
     document.querySelectorAll("[data-ransom]").forEach(el => this.ransomize(el));
     this.els.sfx.volume = 0.45;
-    // preload the transition images so the first run is not blank
     this.els.sfxSg.volume = 0.6;
     this.els.sfxReload.volume = 0.6;
     this.startClock();
     this.startParallax();
     this.startCursor();
+    this.bindLightbox();
     document.body.classList.add("loaded");
   },
 
@@ -71,6 +69,7 @@ const View = {
 
   /* ---------- Screens & menu ---------- */
   showScreen(name) {
+    this.closeLightbox(true);
     const s = this.els.screens;
     Object.values(s).forEach(sc => sc.classList.remove("active"));
     s[name].classList.add("active");
@@ -96,48 +95,6 @@ const View = {
     w.classList.add("go");
     setTimeout(swap, 340);
     setTimeout(done, 720);
-  },
-
-  // The line leaves the home art's diagonal cut and sweeps right -> left,
-  // opening a fan that reveals the next screen's art. swap() runs at the end.
-  cutReveal(src, swap, done) {
-    const el = this.els.reveal, line = this.els.revealLine;
-    el.querySelector("img").src = src;
-    const W = innerWidth, H = innerHeight, s = Math.max(W / 1200, H / 675);
-    const ox = (W - 1200 * s) / 2, oy = (H - 675 * s) / 2;
-    const P = { x: ox + 506 * s, y: oy + 675 * s };   // bottom of the cut (pivot)
-    const T = { x: ox + 712 * s, y: oy };             // top of the cut
-    const a0 = Math.atan2(T.x - P.x, P.y - T.y) * 180 / Math.PI;  // deg clockwise from up
-    const ease = t => t < .5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
-    const dur = 1000, start = performance.now();
-
-    document.body.classList.add("revealing");
-    el.style.transition = "none"; el.style.opacity = 1; el.style.display = "block";
-    Object.assign(line.style, {
-      display: "block", left: P.x - 2 + "px", top: P.y - 3000 + "px",
-      width: "4px", height: "3000px", transformOrigin: "50% 100%",
-    });
-
-    const frame = now => {
-      const t = Math.min(1, (now - start) / dur);
-      const L = a0 - (a0 + 95) * ease(t);
-      const R = a0 + (95 - a0) * ease(Math.min(1, t * 1.35));
-      const mask = `conic-gradient(from ${L}deg at ${P.x}px ${P.y}px, #000 0deg, #000 ${R - L}deg, transparent ${R - L}deg)`;
-      el.style.webkitMaskImage = el.style.maskImage = mask;
-      line.style.transform = `rotate(${L}deg)`;
-      if (t < 1) { requestAnimationFrame(frame); return; }
-      // finished: swap screens underneath, then fade the overlay out
-      line.style.display = "none";
-      document.body.classList.add("instant");
-      swap();
-      document.body.classList.remove("revealing");
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        document.body.classList.remove("instant");
-        el.style.transition = "opacity .3s"; el.style.opacity = 0;
-        setTimeout(() => { el.style.display = "none"; done(); }, 320);
-      }));
-    };
-    requestAnimationFrame(frame);
   },
 
   /* ---------- Sound ---------- */
@@ -302,14 +259,27 @@ const View = {
     }, forward ? 700 : 520);
   },
 
-  // Navigate focus through repo links with arrow keys. Returns true if repos are shown.
+  // Arrow keys walk through the repo links, but ONLY while the "All repositories" panel is open
+  // and visible. Returns true if the key was used for a repo; returns false when the panel is not
+  // showing or when you go past the first / last repo, so the controller moves on to the previous /
+  // next project instead of looping on the repos forever (and the project list stays navigable).
   stepRepoFocus(delta) {
-    const links = [...this.els.projectsBody.querySelectorAll(".pj-repos a")];
+    if (!this.isProjectOpen() || !(this.projectItems[this.projectIndex] || {}).repos) return false;
+    const detail = this.els.projectsBody.querySelector(".pj-detail");
+    if (!detail || !detail.classList.contains("show")) return false;
+    const links = [...detail.querySelectorAll(".pj-repos a")];
     if (!links.length) return false;
     const cur = links.indexOf(document.activeElement);
-    const next = (cur + delta + links.length) % links.length;
+    const next = cur < 0 ? (delta > 0 ? 0 : -1) : cur + delta;
+    if (next < 0 || next >= links.length) return false;       // past the ends: leave the repo list
     links[next].focus();
     return true;
+  },
+
+  // drop the keyboard focus if it sits inside the detail panel (it is about to change or hide)
+  blurDetail() {
+    const detail = this.els.projectsBody.querySelector(".pj-detail");
+    if (detail && detail.contains(document.activeElement)) document.activeElement.blur();
   },
 
   isProjectOpen() {
@@ -348,12 +318,190 @@ const View = {
       body = `
         <span class="pj-tag" style="--lc:${it.color}">${it.tag}</span>
         <h3>${this.splitTitle(it.title)}</h3>
-        ${it.img ? `<div class="pj-thumb"><img src="${it.img}" alt="" loading="lazy"
-            onerror="this.closest('.pj-thumb').remove()"></div>` : ""}
         <p>${it.desc}</p>
+        ${this.shotsHtml(it.shots)}
         <a class="pj-cta" href="${it.url}" target="_blank" rel="noopener">${it.cta || "View on GitHub →"}</a>`;
     }
     detail.innerHTML = `<div class="pj-chips">${chips}</div>${it.repos ? `<h3>${this.splitTitle(it.title)}</h3>` : ""}${body}`;
+    this.bindShots(detail, it.title);
+  },
+
+  /* ---------- Project screenshots: sliding strip + full-size viewer ---------- */
+  shotsHtml(shots) {
+    if (!shots || !shots.length) return "";
+    return `
+      <div class="pj-shots-wrap">
+        <div class="pj-shots-head"><span>Screenshots</span><span class="hint">click to view full size</span></div>
+        <div class="pj-shots-row">
+          <button class="pj-sn prev" type="button" aria-label="Previous screenshots" disabled>◀</button>
+          <div class="pj-shots">${shots.map((src, k) => `
+            <button class="pj-shot" type="button" aria-label="View screenshot ${k + 1} full size">
+              <img src="${src}" alt="" loading="lazy" draggable="false" onerror="View.shotFailed(this)">
+            </button>`).join("")}</div>
+          <button class="pj-sn next" type="button" aria-label="Next screenshots">▶</button>
+        </div>
+      </div>`;
+  },
+
+  // a screenshot file is missing: drop its thumbnail (and the whole strip if none is left)
+  shotFailed(img) {
+    const wrap = img.closest(".pj-shots-wrap"), btn = img.closest(".pj-shot");
+    if (btn) btn.remove();
+    if (!wrap) return;
+    if (!wrap.querySelector(".pj-shot")) wrap.remove();
+    else this.updateShotNav(wrap);
+  },
+
+  // arrows only when the strip really overflows; disabled at both ends
+  updateShotNav(wrap) {
+    const row = wrap.querySelector(".pj-shots");
+    const prev = wrap.querySelector(".pj-sn.prev"), next = wrap.querySelector(".pj-sn.next");
+    if (!row || !prev || !next) return;
+    const max = row.scrollWidth - row.clientWidth;
+    prev.hidden = next.hidden = max <= 2;
+    prev.disabled = row.scrollLeft <= 2;
+    next.disabled = row.scrollLeft >= max - 2;
+  },
+
+  bindShots(detail, title) {
+    const wrap = detail.querySelector(".pj-shots-wrap");
+    if (!wrap) return;
+    const row = wrap.querySelector(".pj-shots");
+
+    row.addEventListener("scroll", () => this.updateShotNav(wrap), { passive: true });
+    wrap.querySelectorAll(".pj-sn").forEach(b => b.addEventListener("click", () => {
+      const step = Math.max(row.clientWidth * 0.8, 120);
+      row.scrollBy({ left: b.classList.contains("next") ? step : -step,
+                     behavior: this.reducedMotion ? "auto" : "smooth" });
+    }));
+
+    // mouse: drag the strip to slide it (touch scrolls natively). A drag never opens a screenshot.
+    let down = false, moved = false, sx = 0, sl = 0;
+    row.addEventListener("pointerdown", e => {
+      if (e.pointerType !== "mouse" || e.button !== 0) return;
+      down = true; moved = false; sx = e.clientX; sl = row.scrollLeft;
+    });
+    row.addEventListener("pointermove", e => {
+      if (!down) return;
+      const dx = e.clientX - sx;
+      if (!moved && Math.abs(dx) > 5) { moved = true; row.setPointerCapture(e.pointerId); row.classList.add("drag"); }
+      if (moved) row.scrollLeft = sl - dx;
+    });
+    const end = () => { down = false; row.classList.remove("drag"); };
+    row.addEventListener("pointerup", end);
+    row.addEventListener("pointercancel", end);
+
+    row.addEventListener("click", e => {
+      if (moved) { moved = false; e.preventDefault(); return; }     // it was a drag
+      const btn = e.target.closest(".pj-shot");
+      if (!btn) return;
+      const list = [...row.querySelectorAll(".pj-shot")];
+      this.openLightbox(list.map(x => x.querySelector("img").getAttribute("src")), list.indexOf(btn), title, btn);
+    });
+
+    this.updateShotNav(wrap);
+  },
+
+  // full-size viewer: fits the screen first, "Original size" shows the real pixels (scroll / drag to pan)
+  bindLightbox() {
+    const root = this.els.lightbox;
+    if (!root) return;
+    const q = s => root.querySelector(s);
+    this.lbEls = { root, stage: q(".lb-stage"), img: q(".lb-stage img"), count: q(".lb-count"),
+      title: q(".lb-title"), dim: q(".lb-dim"), zoom: q(".lb-zoom"), close: q(".lb-close"),
+      prev: q(".lb-prev"), next: q(".lb-next") };
+    const L = this.lbEls;
+
+    L.close.addEventListener("click", () => this.closeLightbox());
+    L.prev.addEventListener("click", () => this.stepLightbox(-1));
+    L.next.addEventListener("click", () => this.stepLightbox(1));
+    L.zoom.addEventListener("click", () => this.toggleLightboxZoom());
+    root.addEventListener("click", e => { if (e.target === root || e.target === L.stage) this.closeLightbox(); });
+
+    // click the picture = toggle fit / original size; in original size the mouse can drag to pan
+    let down = false, moved = false, sx = 0, sy = 0, sl = 0, st = 0;
+    L.img.addEventListener("pointerdown", e => {
+      if (e.pointerType !== "mouse" || e.button !== 0 || !L.stage.classList.contains("orig")) return;
+      down = true; moved = false; sx = e.clientX; sy = e.clientY; sl = L.stage.scrollLeft; st = L.stage.scrollTop;
+      e.preventDefault();
+    });
+    addEventListener("pointermove", e => {
+      if (!down) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (Math.abs(dx) + Math.abs(dy) > 5) moved = true;
+      if (moved) { L.stage.scrollLeft = sl - dx; L.stage.scrollTop = st - dy; L.stage.classList.add("pan"); }
+    });
+    addEventListener("pointerup", () => { down = false; L.stage.classList.remove("pan"); });
+    L.img.addEventListener("click", () => {
+      if (moved) { moved = false; return; }
+      if (!L.zoom.hidden) this.toggleLightboxZoom();
+    });
+  },
+
+  lightboxOpen() { return !!this._lb; },
+
+  openLightbox(list, index, title, opener) {
+    if (!this.lbEls || !list.length) return;
+    this._lb = { list, index, title, opener };
+    this.lbEls.root.classList.add("open");
+    this.lbEls.root.setAttribute("aria-hidden", "false");
+    document.body.classList.add("lb-open");
+    this.showLightbox();
+    this.lbEls.close.focus({ preventScroll: true });
+    this.playSelect();
+  },
+
+  showLightbox() {
+    const s = this._lb, L = this.lbEls;
+    L.stage.classList.remove("orig", "canzoom");
+    L.zoom.hidden = true;
+    L.zoom.textContent = "Original size";
+    L.dim.textContent = "";
+    L.count.textContent = `${s.index + 1} / ${s.list.length}`;
+    L.title.textContent = s.title;
+    L.prev.hidden = L.next.hidden = s.list.length < 2;
+    L.stage.scrollLeft = L.stage.scrollTop = 0;
+    L.img.onload = () => {
+      const w = L.img.naturalWidth, h = L.img.naturalHeight;
+      L.dim.textContent = `${w} × ${h} px`;
+      // "Original size" only matters when the picture is bigger than the available area
+      const bigger = w > L.stage.clientWidth || h > L.stage.clientHeight;
+      L.zoom.hidden = !bigger;
+      L.stage.classList.toggle("canzoom", bigger);
+    };
+    L.img.src = s.list[s.index];
+  },
+
+  toggleLightboxZoom() {
+    const L = this.lbEls;
+    const orig = L.stage.classList.toggle("orig");
+    L.zoom.textContent = orig ? "Fit to screen" : "Original size";
+    if (orig) {   // start in the middle of the picture
+      L.stage.scrollLeft = (L.stage.scrollWidth - L.stage.clientWidth) / 2;
+      L.stage.scrollTop = (L.stage.scrollHeight - L.stage.clientHeight) / 2;
+    }
+    this.playSelect();
+  },
+
+  stepLightbox(delta) {
+    const s = this._lb;
+    if (!s || s.list.length < 2) return;
+    s.index = (s.index + delta + s.list.length) % s.list.length;
+    this.showLightbox();
+    this.playSelect();
+  },
+
+  // silent = true: no sound (used when the screen changes)
+  closeLightbox(silent) {
+    const s = this._lb;
+    if (!s) return;
+    this._lb = null;
+    this.lbEls.root.classList.remove("open");
+    this.lbEls.root.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("lb-open");
+    this.lbEls.img.removeAttribute("src");
+    if (s.opener && s.opener.isConnected) s.opener.focus({ preventScroll: true });
+    if (!silent) this.playSelect();
   },
 
   openProject(i) {
@@ -362,6 +510,7 @@ const View = {
     this.highlightProject(i);
 
     this._pjOpen = true;
+    this.blurDetail();
 
     const detail = this.els.projectsBody.querySelector(".pj-detail");
     detail.classList.remove("show");
@@ -386,6 +535,7 @@ const View = {
   // instant = true: no transition (used when the Projects screen is entered)
   closeProject(instant) {
     const wasOpen = this._pjOpen;
+    this.blurDetail();
     this.projectIndex = -1;
     this._pjOpen = false;
     const body = this.els.projectsBody;

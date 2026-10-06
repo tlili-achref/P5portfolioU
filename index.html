@@ -51,16 +51,19 @@
     <div class="flash"></div>
   </div>
 
-  <!-- Cut-reveal transition (home -> projects) -->
-  <div id="reveal" aria-hidden="true"><img src="assets/menus/projects.jpg" alt=""></div>
-  <div id="reveal-line" aria-hidden="true"></div>
-
-  <!-- Sequence transition (home -> projects): p1.jpg (slash), p2.jpg, then shards open the Projects screen -->
-  <div id="seq" aria-hidden="true">
-    <div id="seq-edge"></div>
-    <img id="seq-a" alt=""><img id="seq-b" alt="">
-    <div id="seq-flash"></div>
-    <i class="r"></i><i class="b"></i><i class="w"></i>
+  <!-- Screenshot viewer (opened from the project details) -->
+  <div id="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot viewer" aria-hidden="true">
+    <div class="lb-bar">
+      <span class="lb-count"></span>
+      <span class="lb-title"></span>
+      <span class="lb-dim"></span>
+      <span class="lb-spacer"></span>
+      <button class="lb-btn lb-zoom" type="button">Original size</button>
+      <button class="lb-btn lb-close" type="button">ESC · Close</button>
+    </div>
+    <button class="lb-nav lb-prev" type="button" aria-label="Previous screenshot">◀</button>
+    <div class="lb-stage"><img alt=""></div>
+    <button class="lb-nav lb-next" type="button" aria-label="Next screenshot">▶</button>
   </div>
 
   <!-- Custom animated cursor + select sound -->

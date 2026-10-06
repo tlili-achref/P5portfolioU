@@ -19,13 +19,6 @@ const Model = {
     contact:  { red: "#e60012", deep: "#a3000c" },
   },
 
-  // Screens opened from Home with the "line out of the cut" reveal (image shown during the sweep)
-  // DISABLED: Projects used to open with this special "line out of the cut" reveal.
-  // Kept here (commented) in case you want it back; View.cutReveal() is still in view.js.
-  // With this empty, every screen uses the same wipe transition.
-  // cutReveal: { projects: "assets/menus/projects.jpg" },
-  cutReveal: {},
-
   // App state (read/written by the Controller, displayed by the View)
   state: {
     screen: "home",        // which screen is showing
@@ -41,28 +34,60 @@ const Model = {
       title: "IA ResearchHub",
       tag: "Full-Stack · AI", color: "#3dff6e",
       url: "https://github.com/tlili-achref", cta: "View on GitHub →",
-      img: "assets/projects/researchhub.png",
+      // Screenshots shown as a sliding strip in the project details (click = full size).
+      // Put your images in assets/projects/ and list them here, e.g. "assets/projects/researchhub-1.png".
+      // (placeholder.jpg is just a stand-in: replace these lines with your own captures)
+      shots: [
+        "assets/projects/placeholder.jpg",
+        "assets/projects/placeholder.jpg",
+        "assets/projects/placeholder.jpg",
+        "assets/projects/placeholder.jpg",
+      ],
       desc: "A Reddit-inspired collaborative platform where researchers publish, comment on, share and discover scientific articles. A personalised recommendation system based on embeddings and semantic clustering suggests content matching each user's interests. Built with Spring Boot, FastAPI, JWT, Angular, TypeScript, PostgreSQL, PgVector, Sentence-Transformers and Docker.",
     },
     {
       title: "Drowsy: Real-Time Drowsiness Detection",
       tag: "Computer Vision", color: "#e60012",
       url: "https://github.com/tlili-achref", cta: "View on GitHub →",
-      img: "assets/projects/drowsy.png",
+      // Screenshots shown as a sliding strip in the project details (click = full size).
+      // Put your images in assets/projects/ and list them here, e.g. "assets/projects/drowsy-1.png".
+      // (placeholder.jpg is just a stand-in: replace these lines with your own captures)
+      shots: [
+        "assets/projects/placeholder.jpg",
+        "assets/projects/placeholder.jpg",
+        "assets/projects/placeholder.jpg",
+        "assets/projects/placeholder.jpg",
+      ],
       desc: "Real-time drowsiness and emotion detection through a mobile camera, with automatic alerts sent through Firebase. Uses the EAR/MAR (Eye/Mouth Aspect Ratio) algorithms for drowsiness and DeepFace for emotion recognition. Built with Python, FastAPI, React Native (Expo), Firebase and OpenCV.",
     },
     {
       title: "Virtual Try-On with CATVTON",
       tag: "Deep Learning", color: "#3178c6",
       url: "https://github.com/tlili-achref", cta: "View on GitHub →",
-      img: "assets/projects/tryon.png",
+      // Screenshots shown as a sliding strip in the project details (click = full size).
+      // Put your images in assets/projects/ and list them here, e.g. "assets/projects/tryon-1.png".
+      // (placeholder.jpg is just a stand-in: replace these lines with your own captures)
+      shots: [
+        "assets/projects/placeholder.jpg",
+        "assets/projects/placeholder.jpg",
+        "assets/projects/placeholder.jpg",
+        "assets/projects/placeholder.jpg",
+      ],
       desc: "A virtual try-on system that lets you test clothes on a photo through a Gradio interface. Implements the CATVTON model with a complete ComfyUI workflow. Built with Python, Gradio, ComfyUI and Deep Learning.",
     },
     {
       title: "MedApp: Medical Application",
       tag: "Internship", color: "#f1e05a",
       url: "https://github.com/tlili-achref", cta: "View on GitHub →",
-      img: "assets/projects/medapp.png",
+      // Screenshots shown as a sliding strip in the project details (click = full size).
+      // Put your images in assets/projects/ and list them here, e.g. "assets/projects/medapp-1.png".
+      // (placeholder.jpg is just a stand-in: replace these lines with your own captures)
+      shots: [
+        "assets/projects/placeholder.jpg",
+        "assets/projects/placeholder.jpg",
+        "assets/projects/placeholder.jpg",
+        "assets/projects/placeholder.jpg",
+      ],
       desc: "Summer internship project at Telnet Holding: a medical web application for managing patients, appointments and prescriptions, built with a TDD approach. I contributed to the frontend with Vue.js, Pinia, Axios and Vitest, connected to a Spring Boot / MongoDB REST API secured with JWT.",
     },
   ],

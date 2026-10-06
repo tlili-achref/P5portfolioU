@@ -75,10 +75,9 @@ const Controller = {
       if (screen === "skills") this.loadSkills();
     };
     const finish = () => { this.transitioning = false; };
-    const cut = Model.state.screen === "home" && Model.cutReveal[screen];
 
-    if (cut && !View.reducedMotion) View.cutReveal(cut, swap, finish);
-    else View.wipe(swap, finish, Model.themes[screen] && Model.themes[screen].red);
+    // every screen (Home -> Projects included) uses the same red wipe
+    View.wipe(swap, finish, Model.themes[screen] && Model.themes[screen].red);
   },
 
   select(index) {
@@ -234,6 +233,16 @@ const Controller = {
 
   bindKeyboard() {
     addEventListener("keydown", e => {
+      // screenshot viewer open: Esc closes it (not the project), arrows switch picture
+      if (View.lightboxOpen()) {
+        if (e.key === "Escape") View.closeLightbox();
+        else if (e.key === "ArrowRight") View.stepLightbox(1);
+        else if (e.key === "ArrowLeft") View.stepLightbox(-1);
+        else if (e.key === "Tab") { /* keep focus on the viewer */ View.lbEls.close.focus(); }
+        else return;
+        e.preventDefault();
+        return;
+      }
       if (Model.state.screen === "home") {
         if (e.key === "ArrowDown") { this.select(Model.state.menuIndex + 1); e.preventDefault(); }
         else if (e.key === "ArrowUp") { this.select(Model.state.menuIndex - 1); e.preventDefault(); }
